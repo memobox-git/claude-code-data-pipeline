@@ -1,0 +1,230 @@
+<title>Olist Revenue Bridge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one column of panels; summary first (the agreed number), then the two bridges side by side, then the answers. */
+:root {
+  --bg: #f9f9f7; --surface: #fcfcfb; --fg: #0b0b0b; --fg2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --good: #0ca30c; --warn: #fab219; --bad: #d03b3b; --good-text: #006300;
+  --fin: #2a78d6; --mkt: #eb6834;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d0d0d; --surface: #1a1a19; --fg: #f0efec; --fg2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --fin: #3987e5; --mkt: #d95926; --good-text: #0ca30c; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0d0d0d; --surface: #1a1a19; --fg: #f0efec; --fg2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --fin: #3987e5; --mkt: #d95926; --good-text: #0ca30c; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font); line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 48px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 1rem; margin: 0 0 4px; }
+.sub { color: var(--fg2); margin: 4px 0 0; font-size: 0.92rem; }
+.eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 8px; padding: 18px 20px; min-width: 0; }
+.hero { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; align-items: end; }
+.hero .big { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; }
+.hero .team { border-left: 3px solid var(--fin); padding-left: 12px; }
+.hero .team.mkt { border-color: var(--mkt); }
+.hero .team .n { font-size: 1.5rem; font-weight: 600; }
+.hero .team .d { color: var(--fg2); font-size: 0.9rem; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.bridge { display: grid; gap: 6px; }
+.step { display: grid; grid-template-columns: 1fr 110px 120px; gap: 10px; align-items: center; font-size: 0.9rem; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.step:last-child { border-bottom: 0; }
+.step .lbl { min-width: 0; color: var(--fg2); }
+.step.total .lbl, .step.total .amt, .step.total .run { color: var(--fg); font-weight: 600; }
+.step .amt, .step .run { text-align: right; font-variant-numeric: tabular-nums; }
+.step .amt { color: var(--fg2); }
+.step .bar { height: 10px; border-radius: 0 4px 4px 0; background: var(--fin); margin-top: 4px; }
+.mkt .step .bar { background: var(--mkt); }
+.step .barwrap { height: 10px; margin-top: 2px; }
+.stat { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.stat > div { padding: 10px 12px; border: 1px solid var(--grid); border-radius: 6px; }
+.stat .v { font-size: 1.5rem; font-weight: 600; }
+.stat .k { color: var(--fg2); font-size: 0.85rem; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tscroll { overflow-x: auto; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }
+.pill.ok { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good-text); }
+.pill.warn { background: color-mix(in srgb, var(--warn) 28%, transparent); color: var(--fg); }
+svg { width: 100%; height: auto; display: block; font-family: var(--font); }
+svg text { fill: var(--muted); font-size: 11px; }
+svg .grid line { stroke: var(--grid); }
+svg .axis { stroke: var(--axis); }
+svg .bar { fill: var(--s1); }
+svg .bar:hover { fill-opacity: 0.8; }
+svg .lab { fill: var(--fg2); font-size: 11px; }
+.tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 9px; border-radius: 6px; font-size: 0.8rem; display: none; z-index: 5; white-space: nowrap; }
+.legend { display: flex; gap: 14px; font-size: 0.82rem; color: var(--fg2); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+footer { color: var(--muted); font-size: 0.8rem; }
+@media (max-width: 760px) { .hero, .two { grid-template-columns: 1fr; } .step { grid-template-columns: 1fr 90px 100px; } }
+@media (prefers-reduced-motion: no-preference) { .bar { transition: width .3s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Olist · Nov 2016 – Sep 2018 · gold layer</div>
+    <h1>One revenue number, and the bridge from each team's number to it</h1>
+    <p class="sub" id="meta">Snapshot from the gold layer.</p>
+  </header>
+
+  <section class="panel hero" aria-label="Headline">
+    <div>
+      <div class="eyebrow">Agreed GMV</div>
+      <div class="big" id="gmv">—</div>
+      <div class="sub">Price + freight. Canceled and unavailable orders count as 0.</div>
+    </div>
+    <div class="team"><div class="eyebrow">Finance reported</div><div class="n" id="fin">—</div><div class="d">Sum of the payments export</div></div>
+    <div class="team mkt"><div class="eyebrow">Marketplace reported</div><div class="n" id="mkt">—</div><div class="d">Sum of the items export (price + freight)</div></div>
+  </section>
+
+  <section class="two">
+    <div class="panel"><h2>Finance → agreed GMV</h2><p class="sub">Bar length = size of the adjustment.</p><div class="bridge" id="bridge-finance"></div></div>
+    <div class="panel mkt"><h2>Marketplace → agreed GMV</h2><p class="sub">Bar length = size of the adjustment.</p><div class="bridge" id="bridge-marketplace"></div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Does late delivery hurt reviews?</h2>
+    <p class="sub">Delivered orders with a review. "Late" = delivered after the estimated date.</p>
+    <div class="stat" id="late"></div>
+  </section>
+
+  <section class="two">
+    <div class="panel"><h2>GMV by month</h2><p class="sub">Counted orders only.</p><div id="monthly"></div></div>
+    <div class="panel"><h2>Top 10 categories by GMV</h2><p class="sub">Order lines on counted orders.</p><div id="cats"></div></div>
+  </section>
+
+  <section class="two">
+    <div class="panel"><h2>Top 10 sellers by GMV</h2><div class="tscroll"><table id="sellers"><thead><tr><th>Seller</th><th>State</th><th class="num">GMV (R$)</th><th class="num">Orders</th><th class="num">Avg review</th></tr></thead><tbody></tbody></table></div></div>
+    <div class="panel"><h2>Data quality this batch</h2><p class="sub">A block failure rolls the layer back. Warnings are kept and shown.</p><div class="tscroll"><table id="dq"><thead><tr><th>Layer</th><th>Severity</th><th class="num">Checks</th><th class="num">Failed</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+      <p class="sub">The three warnings: 8 "delivered" orders with no delivery date · 1 counted order with no payment · 772 paid orders with no items (the biggest piece of Finance's gap).</p></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const DATA = {"batch_id":"20261105T224756Z","generated_at":"2026-11-05T23:28:07+00:00","totals":[{"orders":99441,"gmv":"15735527.03","payments":"16008872.12","items":"15843553.24","canceled_or_unavailable":1234}],"bridge":[{"team":"finance","step_no":1,"step":"Payments export total (all payment rows)","amount":"16008872.12","running_total":"16008872.12"},{"team":"finance","step_no":2,"step":"minus payments on orders with no items","amount":"-162591.95","running_total":"15846280.17"},{"team":"finance","step_no":3,"step":"minus payments on canceled or unavailable orders that have items","amount":"-108058.22","running_total":"15738221.95"},{"team":"finance","step_no":4,"step":"minus payment minus item difference on counted orders (installment interest, rounding, vouchers)","amount":"-2694.92","running_total":"15735527.03"},{"team":"finance","step_no":5,"step":"Agreed GMV (price + freight, counted orders only)","amount":"0.00","running_total":"15735527.03"},{"team":"marketplace","step_no":1,"step":"Items export total (price + freight, all orders)","amount":"15843553.24","running_total":"15843553.24"},{"team":"marketplace","step_no":2,"step":"minus items on canceled or unavailable orders","amount":"-108026.21","running_total":"15735527.03"},{"team":"marketplace","step_no":3,"step":"Agreed GMV (price + freight, counted orders only)","amount":"0.00","running_total":"15735527.03"}],"top_categories":[{"category":"health_beauty","gmv":"1437665.78","orders":8800},{"category":"watches_gifts","gmv":"1298292.47","orders":5604},{"category":"bed_bath_table","gmv":"1240386.13","orders":9399},{"category":"sports_leisure","gmv":"1147244.63","orders":7673},{"category":"computers_accessories","gmv":"1050941.58","orders":6654},{"category":"furniture_decor","gmv":"899626.04","orders":6425},{"category":"housewares","gmv":"772035.14","orders":5847},{"category":"cool_stuff","gmv":"704086.24","orders":3616},{"category":"auto","gmv":"678606.64","orders":3872},{"category":"garden_tools","gmv":"579525.20","orders":3505}],"top_sellers":[{"seller_id":"4869f7a5","state":"SP","gmv":"249393.44","orders":1131,"avg_review":"4.13"},{"seller_id":"7c67e144","state":"SP","gmv":"239536.44","orders":982,"avg_review":"3.35"},{"seller_id":"53243585","state":"BA","gmv":"235856.68","orders":358,"avg_review":"4.08"},{"seller_id":"4a3ca931","state":"SP","gmv":"235359.30","orders":1804,"avg_review":"3.80"},{"seller_id":"fa1c13f2","state":"SP","gmv":"202861.67","orders":584,"avg_review":"4.34"},{"seller_id":"da8622b1","state":"SP","gmv":"185192.32","orders":1314,"avg_review":"4.07"},{"seller_id":"7e93a43e","state":"SP","gmv":"178838.42","orders":332,"avg_review":"4.24"},{"seller_id":"1025f0e2","state":"SP","gmv":"172860.69","orders":915,"avg_review":"3.85"},{"seller_id":"7a67c85e","state":"SP","gmv":"162607.24","orders":1159,"avg_review":"4.24"},{"seller_id":"955fee92","state":"SP","gmv":"160582.90","orders":1286,"avg_review":"4.05"}],"late_vs_review":[{"delivery":"late","orders":7661,"avg_review":"2.57","pct_1_or_2_stars":"54.1"},{"delivery":"on time","orders":88163,"avg_review":"4.29","pct_1_or_2_stars":"9.2"}],"monthly_gmv":[{"month":"2016-09","gmv":"279.69","orders":2},{"month":"2016-10","gmv":"51354.52","orders":293},{"month":"2016-12","gmv":"19.62","orders":1},{"month":"2017-01","gmv":"136943.46","orders":787},{"month":"2017-02","gmv":"283561.69","orders":1718},{"month":"2017-03","gmv":"425617.96","orders":2617},{"month":"2017-04","gmv":"405848.61","orders":2377},{"month":"2017-05","gmv":"582710.83","orders":3640},{"month":"2017-06","gmv":"499652.24","orders":3205},{"month":"2017-07","gmv":"578753.73","orders":3946},{"month":"2017-08","gmv":"661903.52","orders":4272},{"month":"2017-09","gmv":"717102.72","orders":4227},{"month":"2017-10","gmv":"764756.03","orders":4547},{"month":"2017-11","gmv":"1172191.68","orders":7423},{"month":"2017-12","gmv":"861526.77","orders":5620},{"month":"2018-01","gmv":"1101920.01","orders":7187},{"month":"2018-02","gmv":"979486.16","orders":6625},{"month":"2018-03","gmv":"1152656.99","orders":7168},{"month":"2018-04","gmv":"1156248.89","orders":6919},{"month":"2018-05","gmv":"1145686.46","orders":6833},{"month":"2018-06","gmv":"1020381.90","orders":6145},{"month":"2018-07","gmv":"1039783.58","orders":6233},{"month":"2018-08","gmv":"996973.51","orders":6421},{"month":"2018-09","gmv":"166.46","orders":1}],"dq_summary":[{"layer":"bronze","severity":"block","checks":9,"failed":0},{"layer":"gold","severity":"block","checks":7,"failed":0},{"layer":"gold","severity":"warn","checks":2,"failed":2},{"layer":"silver","severity":"block","checks":5,"failed":0},{"layer":"silver","severity":"warn","checks":4,"failed":1}]};
+
+const R = n => "R$ " + Number(n).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const RM = n => "R$ " + (Number(n) / 1e6).toFixed(2) + "M";
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const svgEl = (tag, attrs) => { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+const tip = $("tip");
+const showTip = (ev, html) => { tip.textContent = html; tip.style.display = "block"; moveTip(ev); };
+const moveTip = ev => { const x = Math.min(ev.clientX + 12, window.innerWidth - tip.offsetWidth - 8); tip.style.left = x + "px"; tip.style.top = (ev.clientY + 14) + "px"; };
+const hideTip = () => tip.style.display = "none";
+
+// Headline
+const T = DATA.totals[0];
+$("gmv").textContent = R(T.gmv);
+$("fin").textContent = R(T.payments);
+$("mkt").textContent = R(T.items);
+$("meta").textContent = `${T.orders.toLocaleString()} orders, ${T.canceled_or_unavailable.toLocaleString()} canceled or unavailable. Batch ${DATA.batch_id}, snapshot ${DATA.generated_at.slice(0, 16).replace("T", " ")} UTC.`;
+
+// Bridges
+const maxAdj = Math.max(...DATA.bridge.map(s => Math.abs(Number(s.amount))).filter((a, i) => DATA.bridge[i].step_no > 1));
+for (const team of ["finance", "marketplace"]) {
+  const box = $("bridge-" + team);
+  const steps = DATA.bridge.filter(s => s.team === team);
+  for (const s of steps) {
+    const amt = Number(s.amount), isTotal = s.step_no === 1 || amt === 0;
+    const row = el("div", "step" + (isTotal ? " total" : ""));
+    const lbl = el("div", "lbl"); lbl.appendChild(el("div", null, s.step.replace(/^minus /, "− ")));
+    if (!isTotal) { const w = el("div", "barwrap"); const b = el("div", "bar"); b.style.width = (100 * Math.abs(amt) / maxAdj).toFixed(1) + "%"; w.appendChild(b); lbl.appendChild(w); }
+    row.appendChild(lbl);
+    row.appendChild(el("div", "amt", isTotal ? "" : R(amt)));
+    row.appendChild(el("div", "run", R(s.running_total)));
+    box.appendChild(row);
+  }
+}
+
+// Late vs on time
+for (const r of DATA.late_vs_review) {
+  const d = el("div"); d.appendChild(el("div", "k", r.delivery === "late" ? "Late delivery" : "On time"));
+  d.appendChild(el("div", "v", r.avg_review + " ★"));
+  d.appendChild(el("div", "k", `${r.pct_1_or_2_stars}% give 1–2 stars · ${r.orders.toLocaleString()} orders`));
+  $("late").appendChild(d);
+}
+
+// Monthly GMV: vertical bars, one series.
+(function () {
+  const rows = DATA.monthly_gmv.filter(r => r.month >= "2017-01" && r.month <= "2018-08");
+  const W = 520, H = 230, ml = 44, mr = 8, mt = 10, mb = 34;
+  const svg = svgEl("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "GMV by month"});
+  const max = 1.25e6, iw = W - ml - mr, ih = H - mt - mb, bw = iw / rows.length;
+  const y = v => mt + ih - (v / max) * ih;
+  const g = svgEl("g", {class: "grid"});
+  for (const v of [0, 0.25e6, 0.5e6, 0.75e6, 1e6, 1.25e6]) {
+    g.appendChild(svgEl("line", {x1: ml, x2: W - mr, y1: y(v), y2: y(v)}));
+    const t = svgEl("text", {x: ml - 6, y: y(v) + 4, "text-anchor": "end"}); t.textContent = (v / 1e6).toFixed(2) + "M"; svg.appendChild(t);
+  }
+  svg.appendChild(g);
+  rows.forEach((r, i) => {
+    const v = Number(r.gmv), x = ml + i * bw + 1.5, h = y(0) - y(v);
+    const rect = svgEl("rect", {class: "bar", x, y: y(v), width: bw - 3, height: Math.max(h, 0), rx: 2});
+    rect.addEventListener("mouseenter", ev => showTip(ev, `${r.month}: ${RM(v)} · ${r.orders.toLocaleString()} orders`));
+    rect.addEventListener("mousemove", moveTip); rect.addEventListener("mouseleave", hideTip);
+    svg.appendChild(rect);
+    if (r.month.endsWith("-01") || r.month.endsWith("-07")) { const t = svgEl("text", {x: x + bw / 2, y: H - 14, "text-anchor": "middle"}); t.textContent = r.month; svg.appendChild(t); }
+  });
+  svg.appendChild(svgEl("line", {class: "axis", x1: ml, x2: W - mr, y1: y(0), y2: y(0)}));
+  const peak = rows.reduce((a, b) => Number(b.gmv) > Number(a.gmv) ? b : a);
+  const pi = rows.indexOf(peak); const pt = svgEl("text", {class: "lab", x: ml + pi * bw + bw / 2, y: y(Number(peak.gmv)) - 5, "text-anchor": "middle"}); pt.textContent = "Black Friday " + RM(peak.gmv); svg.appendChild(pt);
+  $("monthly").appendChild(svg);
+})();
+
+// Top categories: horizontal bars, one series, direct labels.
+(function () {
+  const rows = DATA.top_categories, W = 520, rh = 24, ml = 150, mr = 70, H = rows.length * rh + 8;
+  const svg = svgEl("svg", {viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Top categories by GMV"});
+  const max = Number(rows[0].gmv), iw = W - ml - mr;
+  rows.forEach((r, i) => {
+    const v = Number(r.gmv), yy = 4 + i * rh, w = iw * v / max;
+    const t = svgEl("text", {class: "lab", x: ml - 8, y: yy + 15, "text-anchor": "end"}); t.textContent = r.category.replace(/_/g, " "); svg.appendChild(t);
+    const rect = svgEl("rect", {class: "bar", x: ml, y: yy + 4, width: w, height: rh - 10, rx: 3});
+    rect.addEventListener("mouseenter", ev => showTip(ev, `${r.category}: ${R(v)} · ${r.orders.toLocaleString()} orders`));
+    rect.addEventListener("mousemove", moveTip); rect.addEventListener("mouseleave", hideTip);
+    svg.appendChild(rect);
+    const n = svgEl("text", {class: "lab", x: ml + w + 6, y: yy + 15}); n.textContent = RM(v); svg.appendChild(n);
+  });
+  $("cats").appendChild(svg);
+})();
+
+// Sellers table
+{
+  const tb = $("sellers").querySelector("tbody");
+  for (const s of DATA.top_sellers) {
+    const tr = el("tr");
+    [[s.seller_id + "…", ""], [s.state, ""], [Number(s.gmv).toLocaleString("en-US", {minimumFractionDigits: 2}), "num"], [s.orders.toLocaleString(), "num"], [s.avg_review, "num"]]
+      .forEach(([v, c]) => tr.appendChild(el("td", c, v)));
+    tb.appendChild(tr);
+  }
+}
+
+// DQ table
+{
+  const tb = $("dq").querySelector("tbody");
+  for (const d of [...DATA.dq_summary].sort((a, b) => a.layer.localeCompare(b.layer) || a.severity.localeCompare(b.severity))) {
+    const tr = el("tr");
+    tr.appendChild(el("td", null, d.layer)); tr.appendChild(el("td", null, d.severity));
+    tr.appendChild(el("td", "num", String(d.checks))); tr.appendChild(el("td", "num", String(d.failed)));
+    const td = el("td"); td.appendChild(el("span", "pill " + (d.failed ? "warn" : "ok"), d.failed ? (d.severity === "block" ? "✕ rolled back" : "⚠ warnings kept") : "✓ passed")); tr.appendChild(td);
+    tb.appendChild(tr);
+  }
+}
+$("foot").textContent = "Source: gold.revenue_bridge, gold.fact_order, gold.fact_order_item and meta.dq_results in RDS, read by the pipeline's report step. GMV = price + freight; 0 for canceled or unavailable orders. Items and payments are rolled up to one row per order before they are compared.";
+</script>
