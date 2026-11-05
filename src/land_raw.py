@@ -28,7 +28,8 @@ def describe(path: Path) -> dict:
     with path.open("rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             sha.update(chunk)
-    with path.open(newline="", encoding="utf-8") as fh:
+    # utf-8-sig drops a leading byte-order mark; the translation file has one.
+    with path.open(newline="", encoding="utf-8-sig") as fh:
         reader = csv.reader(fh)
         header = next(reader)
         rows = sum(1 for _ in reader)

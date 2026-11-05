@@ -68,14 +68,15 @@ def run(batch_id: str) -> dict:
         for f in manifest["files"]:
             table = FILE_TO_TABLE[f["file"]]
             target = sql.Identifier("bronze", table)
-            cols = sql.SQL(", ").join(sql.Identifier(c) for c in f["columns"])
+            columns = [c.lstrip("﻿") for c in f["columns"]]   # older manifests kept the BOM
+            cols = sql.SQL(", ").join(sql.Identifier(c) for c in columns)
 
             cur.execute(sql.SQL("DELETE FROM {} WHERE batch_id = %s").format(target), (batch_id,))
 
             # COPY the CSV body into a temp table, then insert with the audit columns.
             stage = sql.Identifier(f"stage_{table}")
             cur.execute(sql.SQL("CREATE TEMP TABLE {} ({}) ON COMMIT DROP").format(
-                stage, sql.SQL(", ").join(sql.SQL("{} text").format(sql.Identifier(c)) for c in f["columns"])))
+                stage, sql.SQL(", ").join(sql.SQL("{} text").format(sql.Identifier(c)) for c in columns)))
             body = s3.get_object(Bucket=bucket, Key=f["s3_key"])["Body"]
             copy_stmt = sql.SQL("COPY {} FROM STDIN WITH (FORMAT csv, HEADER true, NULL '')").format(stage)
             with cur.copy(copy_stmt) as copy:
