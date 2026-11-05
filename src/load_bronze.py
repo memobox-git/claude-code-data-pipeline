@@ -41,14 +41,19 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch-id", required=True)
     args = ap.parse_args()
+    run(args.batch_id)
 
+
+def run(batch_id: str) -> dict:
+    """Load one batch into bronze. Returns per-table counts; raises on a failed block check."""
     cfg = settings()
     session = aws_session(cfg)
     s3 = session.client("s3")
-    bucket, prefix = cfg["S3_BUCKET"], f"raw/olist/batch={args.batch_id}/"
+    bucket, prefix = cfg["S3_BUCKET"], f"raw/olist/batch={batch_id}/"
     manifest = json.loads(s3.get_object(Bucket=bucket, Key=prefix + "_manifest.json")["Body"].read())
 
     failures: list[str] = []
+    result: dict[str, dict] = {}
     with db_connect(cfg, session) as conn:          # one transaction; commit only at the end
         cur = conn.cursor()
         run_sql_file(cur, ROOT / "sql" / "00_meta.sql")
@@ -65,7 +70,7 @@ def main() -> None:
             target = sql.Identifier("bronze", table)
             cols = sql.SQL(", ").join(sql.Identifier(c) for c in f["columns"])
 
-            cur.execute(sql.SQL("DELETE FROM {} WHERE batch_id = %s").format(target), (args.batch_id,))
+            cur.execute(sql.SQL("DELETE FROM {} WHERE batch_id = %s").format(target), (batch_id,))
 
             # COPY the CSV body into a temp table, then insert with the audit columns.
             stage = sql.Identifier(f"stage_{table}")
@@ -79,32 +84,34 @@ def main() -> None:
             cur.execute(
                 sql.SQL("INSERT INTO {} ({}, batch_id, source_file) SELECT {}, %s, %s FROM {}")
                 .format(target, cols, cols, stage),
-                (args.batch_id, f["s3_key"]),
+                (batch_id, f["s3_key"]),
             )
             loaded = cur.rowcount
 
             cur.execute(
                 "INSERT INTO meta.lineage (batch_id, layer, source, target, rows_in, rows_out) "
                 "VALUES (%s, 'bronze', %s, %s, %s, %s)",
-                (args.batch_id, f["s3_key"], f"bronze.{table}", f["rows"], loaded),
+                (batch_id, f["s3_key"], f"bronze.{table}", f["rows"], loaded),
             )
             failing = abs(loaded - f["rows"])
             cur.execute(
                 "INSERT INTO meta.dq_results (batch_id, layer, check_name, target, severity, failing_rows, sample) "
                 "VALUES (%s, 'bronze', 'row_count_matches_manifest', %s, 'block', %s, %s)",
-                (args.batch_id, f"bronze.{table}", failing,
+                (batch_id, f"bronze.{table}", failing,
                  json.dumps({"manifest_rows": f["rows"], "loaded_rows": loaded})),
             )
             status = "ok" if failing == 0 else "FAIL"
             if failing:
                 failures.append(f"bronze.{table}: manifest {f['rows']} vs loaded {loaded}")
-            print(f"bronze.{table:25} {f['rows']:>9} {loaded:>9}  {status}")
+            result[f"bronze.{table}"] = {"manifest": f["rows"], "loaded": loaded, "check": status}
+            print(f"bronze.{table:25} {f['rows']:>9} {loaded:>9}  {status}", flush=True)
 
         if failures:
             conn.rollback()
-            raise SystemExit("block check failed, bronze rolled back:\n  " + "\n  ".join(failures))
+            raise RuntimeError("block check failed, bronze rolled back:\n  " + "\n  ".join(failures))
         conn.commit()
-    print(f"\nbronze batch {args.batch_id} committed")
+    print(f"\nbronze batch {batch_id} committed", flush=True)
+    return result
 
 
 if __name__ == "__main__":

@@ -12,7 +12,9 @@ from pathlib import Path
 import boto3
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent.parent
+_HERE = Path(__file__).resolve().parent
+# Repo layout: <root>/src/common.py + <root>/sql. Lambda layout: everything at /var/task.
+ROOT = _HERE if (_HERE / "sql").is_dir() else _HERE.parent
 PROJECT_TAG = {"Key": "project", "Value": "olist-lightning"}
 
 
