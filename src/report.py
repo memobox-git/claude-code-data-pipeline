@@ -61,6 +61,6 @@ def run(batch_id: str) -> dict:
             out[name] = [dict(zip(cols, row)) for row in cur.fetchall()]
     session.client("s3").put_object(
         Bucket=cfg["S3_BUCKET"], Key=f"gold-snapshots/{batch_id}.json", ContentType="application/json",
-        Tagging="project=olist-lightning", Body=json.dumps(out, default=str, indent=1).encode(),
+        Body=json.dumps(out, default=str, indent=1).encode(),
     )
     return json.loads(json.dumps(out, default=str))
