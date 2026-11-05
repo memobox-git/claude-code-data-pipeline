@@ -71,7 +71,7 @@ def run(layer: str, batch_id: str) -> dict:
             checks_out.append({"check": chk["name"], "severity": chk["severity"], "failing_rows": failing, "status": status})
             print(f"check {chk['name']:40} {chk['severity']:5} failing={failing:<7} {status}", flush=True)
             if failing and chk["severity"] == "block":
-                blocks.append(f"{chk['name']}: {failing} failing rows")
+                blocks.append(f"{chk['name']}: {failing} failing rows, sample {sample}")
 
         lineage = {}
         for target, source in spec["lineage"].items():
