@@ -1,0 +1,22 @@
+# Settings: holds the bucket name, secret name and other local values
+config.env
+*.env
+!config.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Data downloads and scratch
+data/
+*.csv
+*.zip
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+build/
