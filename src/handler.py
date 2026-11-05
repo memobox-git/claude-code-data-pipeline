@@ -10,9 +10,12 @@ from __future__ import annotations
 import time
 
 import load_bronze
+import run_layer
 
 STEPS = {
     "bronze": lambda ev: load_bronze.run(ev["batch_id"]),
+    "silver": lambda ev: run_layer.run("silver", ev["batch_id"]),
+    "gold": lambda ev: run_layer.run("gold", ev["batch_id"]),
 }
 
 
