@@ -11,6 +11,7 @@ import time
 
 import load_bronze
 import report
+import reset
 import run_layer
 
 STEPS = {
@@ -18,6 +19,7 @@ STEPS = {
     "silver": lambda ev: run_layer.run("silver", ev["batch_id"]),
     "gold": lambda ev: run_layer.run("gold", ev["batch_id"]),
     "report": lambda ev: report.run(ev["batch_id"]),
+    "reset": lambda ev: reset.run(ev.get("batch_id")),
 }
 
 
