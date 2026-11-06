@@ -45,8 +45,6 @@ def run(batch_id: str) -> dict:
         cur.execute("INSERT INTO meta.batch (batch_id, source, landed_at) VALUES (%s, %s, %s) "
                     "ON CONFLICT (batch_id) DO NOTHING",
                     (batch_id, manifest["source"], manifest["landed_at"]))
-        cur.execute("DELETE FROM meta.dq_results WHERE batch_id = %s AND layer = 'bronze'", (batch_id,))
-        cur.execute("DELETE FROM meta.lineage WHERE batch_id = %s AND layer = 'bronze'", (batch_id,))
 
         for f in manifest["files"]:
             table = FILE_TO_TABLE[f["file"]]
