@@ -21,7 +21,33 @@ STEPS = {
     "gold": lambda ev: run_layer.run("gold", ev["batch_id"]),
     "report": lambda ev: report.run(ev["batch_id"]),
     "reset": lambda ev: reset.run(ev.get("batch_id")),
+    "all": lambda ev: run_all(ev),
 }
+
+
+def latest_batch_id() -> str:
+    """Newest raw/olist/batch=<id>/ prefix in the bucket."""
+    import boto3
+    from common import settings
+    cfg = settings()
+    r = boto3.client("s3").list_objects_v2(Bucket=cfg["S3_BUCKET"], Prefix="raw/olist/batch=", Delimiter="/")
+    ids = sorted(p["Prefix"].split("batch=")[1].rstrip("/") for p in r.get("CommonPrefixes", []))
+    if not ids:
+        raise RuntimeError("no raw batches in the bucket")
+    return ids[-1]
+
+
+def run_all(ev):
+    """Scheduled run: bronze -> silver -> gold -> report on the newest batch."""
+    batch_id = ev.get("batch_id") or latest_batch_id()
+    out = {"batch_id": batch_id}
+    out["bronze"] = {t: v["check"] for t, v in load_bronze.run(batch_id).items()}
+    for layer in ("silver", "gold"):
+        r = run_layer.run(layer, batch_id)
+        out[layer] = {c["check"]: c["status"] for c in r["checks"]}
+    rep = report.run(batch_id)
+    out["agreed_gmv"] = rep["totals"][0]["gmv"]
+    return out
 
 
 OVERRIDABLE = ("S3_BUCKET", "DB_HOST", "DB_SECRET_NAME", "DB_NAME", "DB_USER")
