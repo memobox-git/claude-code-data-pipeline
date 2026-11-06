@@ -97,10 +97,15 @@ def load_metrics() -> dict:
     return yaml.safe_load(METRICS_PATH.read_text())
 
 
+def strip_noise(query: str) -> str:
+    """The query with string literals, quoted identifiers and comments blanked out."""
+    return _NOISE.sub(" ", query)
+
+
 def check_read_only(query: str) -> str:
     """Return the single statement to run, or raise ToolError explaining why not."""
     stmt = query.strip().rstrip(";").strip()
-    body = _NOISE.sub(" ", stmt)
+    body = strip_noise(stmt)
     if not _READ.match(body):
         raise ToolError("Only a SELECT (or WITH ... SELECT) statement is allowed. The data is read-only.")
     if ";" in body:

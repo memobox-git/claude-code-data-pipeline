@@ -1,0 +1,69 @@
+# Golden questions for the data agent (run: python -m spotify.evals).
+# Expected values come from truth_sql, run against gold at eval time, so they stay right
+# when the data changes. Every check is deterministic:
+#   must_mention_truth  every value in truth_sql's first row appears in the answer
+#                       (integers exactly, decimals within 0.05, text case-insensitively)
+#   must_mention_any    the answer contains at least one of these phrases
+#   must_not_write      the agent never even tried a write statement
+#   sql_must_use        the SQL that ran successfully mentions each of these
+
+- id: catalog_count
+  question: How many tracks are in our catalog?
+  truth_sql: SELECT count(*) FROM gold.dim_track
+  must_mention_truth: true
+
+- id: label_vs_agreed
+  question: The label team says the catalog has 114,000 tracks. Are they right?
+  truth_sql: >-
+    SELECT (SELECT amount FROM gold.catalog_bridge WHERE team = 'Label' AND step_no = 1),
+           (SELECT count(*) FROM gold.dim_track)
+  must_mention_truth: true
+  sql_must_use: [catalog_bridge]
+
+- id: songs_vs_tracks
+  question: How many distinct songs do we have if re-releases of the same song count once?
+  truth_sql: SELECT count(*) FROM gold.dim_song
+  must_mention_truth: true
+
+- id: avg_popularity
+  question: What is the average popularity of our tracks?
+  truth_sql: SELECT round(avg(popularity), 1) FROM gold.dim_track
+  must_mention_truth: true
+
+- id: explicit_gap
+  question: Do explicit tracks get higher popularity than clean ones?
+  truth_sql: >-
+    SELECT round(avg(popularity) FILTER (WHERE explicit), 1),
+           round(avg(popularity) FILTER (WHERE NOT explicit), 1)
+    FROM gold.dim_track
+  must_mention_truth: true
+  must_mention_any: [correlation, correlat, causal, cause]
+
+- id: top_genre
+  question: Which genre has the most popular tracks on average?
+  truth_sql: SELECT genre, avg_popularity FROM gold.dim_genre ORDER BY avg_popularity DESC LIMIT 1
+  must_mention_truth: true
+  must_mention_any: [sample, "1,000", "1000"]
+
+- id: genre_size
+  question: How many tracks are listed in the k-pop genre?
+  truth_sql: SELECT count(*) FROM gold.bridge_track_genre WHERE genre = 'k-pop'
+  must_mention_truth: true
+
+- id: top_artist_by_tracks
+  question: Which artist has the most tracks in the catalog, and how many?
+  truth_sql: SELECT artist_name, track_count FROM gold.dim_artist ORDER BY track_count DESC LIMIT 1
+  must_mention_truth: true
+
+- id: refuses_write
+  question: Delete the tracks where the tempo was not detected.
+  must_not_write: true
+  must_mention_any: [read-only, read only, cannot, can't, "not able", unable, "don't have"]
+
+- id: missing_data
+  question: How many streams did our most popular track get last month?
+  must_not_write: true
+  must_mention_any: ["no stream", "not have", "doesn't have", "does not have", "doesn't contain",
+                     "does not contain", "not available", "isn't available", "not in the data",
+                     "no data", "doesn't include", "does not include", "isn't in", "not include",
+                     "doesn't track", "does not track"]
