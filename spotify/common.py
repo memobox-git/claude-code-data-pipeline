@@ -45,7 +45,7 @@ def aws_session():
     return boto3.Session(region_name=region)
 
 
-def _secret_password(secret_name: str) -> str:
+def secret_password(secret_name: str) -> str:
     """Fetch a password from Secrets Manager. Never log the result."""
     sm = aws_session().client("secretsmanager")
     return json.loads(sm.get_secret_value(SecretId=secret_name)["SecretString"])["password"]
@@ -57,7 +57,7 @@ def _rds_connect(user: str, secret_var: str) -> psycopg.Connection:
         raise SystemExit(f"config.env is missing: {', '.join(missing)}")
     return psycopg.connect(
         host=env("DB_HOST"), port=int(env("DB_PORT", "5432")), dbname=env("SPOTIFY_DB_NAME", "spotify"),
-        user=user, password=_secret_password(env(secret_var)), sslmode="require", connect_timeout=15,
+        user=user, password=secret_password(env(secret_var)), sslmode="require", connect_timeout=15,
     )
 
 
@@ -70,7 +70,7 @@ def admin_connect() -> psycopg.Connection:
 def agent_connect() -> psycopg.Connection:
     """Agent connection: logs in as the read-only role (SELECT on gold, nothing else)."""
     url = env("SPOTIFY_AGENT_DATABASE_URL")
-    return psycopg.connect(url, connect_timeout=15) if url else _rds_connect(env("AGENT_USER", "agent_reader"), "AGENT_SECRET_NAME")
+    return psycopg.connect(url, connect_timeout=15) if url else _rds_connect("agent_reader", "AGENT_SECRET_NAME")
 
 
 class RawStore:

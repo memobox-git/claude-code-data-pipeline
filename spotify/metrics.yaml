@@ -1,0 +1,88 @@
+# The semantic layer: definitions every team has agreed to.
+# The agent must compute these metrics exactly this way (it reads them with get_metric).
+# Every sql here runs against gold only, as the read-only agent_reader login.
+# Numbers are not written here: they come from the data, so they never go stale.
+
+catalog_tracks:
+  definition: >-
+    The number of tracks in the catalog: distinct Spotify track_ids after bad rows are
+    quarantined. This is the one catalog number all teams agree on.
+  grain: one row of gold.dim_track = one track
+  sql: SELECT count(*) AS catalog_tracks FROM gold.dim_track
+  bridge_sql: >-
+    SELECT team, step_no, step, amount, running_total
+    FROM gold.catalog_bridge ORDER BY team, step_no
+  caveats:
+    - Label counts rows in the file, Editorial counts distinct track_ids before quarantine,
+      Product counts songs. Each is right for what it counts; the bridge explains every gap.
+
+catalog_songs:
+  definition: >-
+    Distinct songs: the same title by the same artists counts once across all its releases
+    (album, single, compilation).
+  grain: one row of gold.dim_song = one song
+  sql: SELECT count(*) AS catalog_songs FROM gold.dim_song
+  caveats:
+    - Title and artists are matched case-insensitively; remixes and live versions with a
+      different title count as different songs.
+
+avg_popularity:
+  definition: Average Spotify popularity (0-100) per track.
+  grain: per track (gold.dim_track)
+  sql: SELECT round(avg(popularity), 1) AS avg_popularity, count(*) AS tracks FROM gold.dim_track
+  caveats:
+    - Popularity is Spotify's score at snapshot time, not streams or revenue.
+
+popularity_by_genre:
+  definition: Average popularity of the tracks listed under each genre.
+  grain: one row per genre; a track counts once in every genre it is listed under
+  sql: >-
+    SELECT g.genre, count(*) AS tracks, round(avg(t.popularity), 1) AS avg_popularity
+    FROM gold.bridge_track_genre g JOIN gold.dim_track t USING (track_id)
+    GROUP BY g.genre ORDER BY avg_popularity DESC
+  caveats:
+    - A track listed under several genres counts in each, so genre totals add up to more
+      than the catalog.
+    - The source sampled about 1,000 listings per genre, so genre sizes reflect the sample,
+      not the market.
+
+popularity_by_explicit:
+  definition: Average popularity of explicit versus clean tracks, with how many tracks each.
+  grain: per track (gold.dim_track)
+  sql: >-
+    SELECT explicit, count(*) AS tracks, round(avg(popularity), 1) AS avg_popularity
+    FROM gold.dim_track GROUP BY explicit ORDER BY explicit
+  caveats:
+    - A gap between groups is a correlation, not a cause; explicit tracks are concentrated
+      in some genres.
+
+artist_popularity:
+  definition: Average popularity of an artist's tracks, for artists with at least 5 tracks.
+  grain: one row of gold.dim_artist = one artist name
+  sql: >-
+    SELECT artist_name, track_count, avg_popularity FROM gold.dim_artist
+    WHERE track_count >= 5 ORDER BY avg_popularity DESC, track_count DESC LIMIT 20
+  caveats:
+    - The source has no artist ids, so two artists with the same name are merged.
+    - Below 5 tracks an average is too noisy to rank.
+
+feature_popularity_correlation:
+  definition: >-
+    Pearson correlation between popularity and each audio feature, across tracks.
+    Answers "which sound characteristics go with popular tracks".
+  grain: per track (gold.dim_track)
+  sql: >-
+    SELECT round(corr(popularity, danceability)::numeric, 3) AS danceability,
+           round(corr(popularity, energy)::numeric, 3) AS energy,
+           round(corr(popularity, valence)::numeric, 3) AS valence,
+           round(corr(popularity, acousticness)::numeric, 3) AS acousticness,
+           round(corr(popularity, instrumentalness)::numeric, 3) AS instrumentalness,
+           round(corr(popularity, speechiness)::numeric, 3) AS speechiness,
+           round(corr(popularity, liveness)::numeric, 3) AS liveness,
+           round(corr(popularity, loudness_db)::numeric, 3) AS loudness_db,
+           round(corr(popularity, tempo_bpm)::numeric, 3) AS tempo_bpm,
+           round(corr(popularity, duration_sec)::numeric, 3) AS duration_sec
+    FROM gold.dim_track
+  caveats:
+    - Values between -0.1 and 0.1 are weak; none of these alone explains popularity.
+    - Correlation, not cause.
