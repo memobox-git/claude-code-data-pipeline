@@ -7,6 +7,7 @@ secret is ever in the event, the environment or the logs.
 """
 from __future__ import annotations
 
+import os
 import time
 
 import load_bronze
@@ -23,7 +24,13 @@ STEPS = {
 }
 
 
+OVERRIDABLE = ("S3_BUCKET", "DB_HOST", "DB_SECRET_NAME", "DB_NAME", "DB_USER")
+
+
 def lambda_handler(event, context):
+    for k in OVERRIDABLE:          # run the same code against another database or bucket
+        if event.get(k):
+            os.environ[k] = event[k]
     step = event.get("step")
     if step not in STEPS:
         return {"ok": False, "error": f"unknown step {step!r}; known: {sorted(STEPS)}"}
